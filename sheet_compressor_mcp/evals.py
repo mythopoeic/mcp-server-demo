@@ -65,59 +65,43 @@ class GoldenCase:
 
 def all_regions_present(result: dict) -> Outcome:
     """All four known regions appear among the extracted orders' region field."""
+    name = "all four regions present"
     seen = {(o.get("region") or "") for o in result.get("orders", [])}
     missing = KNOWN_REGIONS - seen
     if missing:
-        return Outcome(
-            "all four regions present",
-            False,
-            f"missing {sorted(missing)} (saw {sorted(seen)})",
-        )
-    return Outcome("all four regions present", True, f"saw {sorted(seen & KNOWN_REGIONS)}")
+        return Outcome(name, False, f"missing {sorted(missing)} (saw {sorted(seen)})")
+    return Outcome(name, True, f"saw {sorted(seen & KNOWN_REGIONS)}")
 
 
 def every_order_region_is_known(result: dict) -> Outcome:
     """No extracted order names a region outside the four known regions."""
+    name = "every order's region is one of the known four"
     bad = sorted({(o.get("region") or "") for o in result.get("orders", [])} - KNOWN_REGIONS)
     if bad:
-        return Outcome(
-            "every order's region is one of the known four",
-            False,
-            f"unknown regions: {bad}",
-        )
-    return Outcome("every order's region is one of the known four", True, "all known")
+        return Outcome(name, False, f"unknown regions: {bad}")
+    return Outcome(name, True, "all known")
 
 
 def every_order_make_is_known(result: dict) -> Outcome:
     """No extracted order names a make outside the source sheet's lineup."""
+    name = "every order's make is one of the lineup makes"
     bad = sorted({(o.get("make") or "") for o in result.get("orders", [])} - KNOWN_MAKES)
     if bad:
-        return Outcome(
-            "every order's make is one of the lineup makes",
-            False,
-            f"unknown makes: {bad}",
-        )
-    return Outcome("every order's make is one of the lineup makes", True, "all known")
+        return Outcome(name, False, f"unknown makes: {bad}")
+    return Outcome(name, True, "all known")
 
 
 def every_order_has_required_fields(result: dict) -> Outcome:
     """Each extracted order has every schema-required field populated (non-None)."""
+    name = "every order has all required fields"
     orders = result.get("orders", [])
     if not orders:
-        return Outcome("every order has all required fields", False, "no orders")
+        return Outcome(name, False, "no orders")
     for i, order in enumerate(orders):
         missing = [f for f in REQUIRED_ORDER_FIELDS if order.get(f) is None]
         if missing:
-            return Outcome(
-                "every order has all required fields",
-                False,
-                f"order[{i}] missing {sorted(missing)}",
-            )
-    return Outcome(
-        "every order has all required fields",
-        True,
-        f"{len(orders)} orders, all complete",
-    )
+            return Outcome(name, False, f"order[{i}] missing {sorted(missing)}")
+    return Outcome(name, True, f"{len(orders)} orders, all complete")
 
 
 def extracted_order_count_at_least(threshold: int) -> Expectation:

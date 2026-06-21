@@ -110,11 +110,11 @@ def test_total_revenue_matches_sum_of_orders_within_rounding():
     assert not total_revenue_matches_sum_of_orders(drifted).passed
 
 
-def test_run_cases_returns_zero_when_all_pass(tmp_path):
+def test_run_cases_returns_zero_when_all_pass():
     case = GoldenCase(
         name="all-pass",
         xlsx_path=HERO_XLSX,
-        expectations=[lambda r: all_regions_present(r)],
+        expectations=[all_regions_present],
     )
     buf = io.StringIO()
     fake = FakeProvider(GOOD_RESPONSE)
