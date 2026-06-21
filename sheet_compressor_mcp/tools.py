@@ -29,7 +29,8 @@ def compress_spreadsheet(
             f"Unknown encoding {encoding!r}; expected one of {ENCODINGS}"
         )
 
-    grid = read_sheet(xlsx_path) if sheet is None else read_sheet(xlsx_path, {"sheet": sheet})
+    options = {"sheet": sheet} if sheet is not None else None
+    grid = read_sheet(xlsx_path, options)
     result = compress(grid)
     enc = result["encodings"][encoding]
     raw_tokens = result["rawBaseline"]["tokenEstimate"]
