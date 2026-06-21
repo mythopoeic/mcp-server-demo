@@ -80,16 +80,14 @@ def extract_orders(
     if provider is None:
         provider = build_provider_from_env()
 
-    compression = compress_spreadsheet(xlsx_path, encoding="anchor", sheet=sheet)
+    compressed = compress_spreadsheet(xlsx_path, encoding="anchor", sheet=sheet)["compressed"]
 
-    reader = prompts.readers.anchor
     system = (
-        reader
-        + "\n\n"
-        + "You are an extraction assistant. Read the anchor-encoded sheet the user\n"
-        + "sends and return order line-items as JSON matching the provided schema."
+        f"{prompts.readers.anchor}\n\n"
+        "You are an extraction assistant. Read the anchor-encoded sheet the user "
+        "sends and return order line-items as JSON matching the provided schema."
     )
-    user = f"{_TASK_PROMPT}\n\n{compression['compressed']}"
+    user = f"{_TASK_PROMPT}\n\n{compressed}"
 
     return provider.extract_structured(
         system=system,

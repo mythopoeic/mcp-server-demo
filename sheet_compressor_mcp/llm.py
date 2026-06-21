@@ -36,9 +36,15 @@ class _MessagesProvider:
 
     def __init__(self, model_id: str) -> None:
         self._model_id = model_id
+        self._instance = None
 
-    def _client(self):  # pragma: no cover - overridden in subclasses
+    def _build_client(self):  # pragma: no cover - overridden in subclasses
         raise NotImplementedError
+
+    def _client(self):
+        if self._instance is None:
+            self._instance = self._build_client()
+        return self._instance
 
     def extract_structured(
         self,
@@ -72,14 +78,11 @@ class BedrockProvider(_MessagesProvider):
             )
         super().__init__(model_id)
         self._region = region
-        self._instance = None
 
-    def _client(self):
-        if self._instance is None:
-            from anthropic import AnthropicBedrockMantle
+    def _build_client(self):
+        from anthropic import AnthropicBedrockMantle
 
-            self._instance = AnthropicBedrockMantle(aws_region=self._region)
-        return self._instance
+        return AnthropicBedrockMantle(aws_region=self._region)
 
 
 class AnthropicProvider(_MessagesProvider):
@@ -87,14 +90,11 @@ class AnthropicProvider(_MessagesProvider):
 
     def __init__(self, *, model_id: str) -> None:
         super().__init__(model_id)
-        self._instance = None
 
-    def _client(self):
-        if self._instance is None:
-            from anthropic import Anthropic
+    def _build_client(self):
+        from anthropic import Anthropic
 
-            self._instance = Anthropic()
-        return self._instance
+        return Anthropic()
 
 
 def build_provider_from_env(env: dict[str, str] | None = None) -> LLMProvider:
