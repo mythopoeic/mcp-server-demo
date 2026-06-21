@@ -7,7 +7,10 @@ functions directly (Seam 1), so this file does not need its own test coverage.
 
 from mcp.server.fastmcp import FastMCP
 
-from sheet_compressor_mcp.tools import compress_spreadsheet as _compress_spreadsheet
+from sheet_compressor_mcp.tools import (
+    compress_spreadsheet as _compress_spreadsheet,
+    sheet_qa as _sheet_qa,
+)
 
 mcp = FastMCP("sheet-compressor")
 
@@ -27,6 +30,20 @@ def compress_spreadsheet(xlsx_path: str, encoding: str = "anchor", sheet: str | 
         ``{encoding, compressed, tokenEstimate, rawBaselineTokens, savingsRatio}``.
     """
     return _compress_spreadsheet(xlsx_path, encoding=encoding, sheet=sheet)
+
+
+@mcp.prompt()
+def sheet_qa(encoding_text: str, question: str, encoding: str = "anchor") -> str:
+    """Ready-to-run prompt: reader explainer + sheetQA task, filled in.
+
+    Args:
+        encoding_text: The compressed sheet string (e.g. from ``compress_spreadsheet``).
+        question: The natural-language question to ask about the sheet.
+        encoding: Which reader explainer to prepend — ``anchor`` (default),
+            ``invertedIndex``, or ``formatAggregation``. Must match how
+            ``encoding_text`` was produced.
+    """
+    return _sheet_qa(encoding_text, question, encoding=encoding)
 
 
 if __name__ == "__main__":
