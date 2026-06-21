@@ -3,3 +3,6 @@ node_modules/
 .env.*
 !.env.example
 .claude/settings.local.json
+
+# Personal interview material — not for the public build repo
+OneMagnify Full Stack AI Engineer Job Description.pdf

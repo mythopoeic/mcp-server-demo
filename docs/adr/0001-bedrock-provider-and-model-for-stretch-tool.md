@@ -1,0 +1,7 @@
+# Bedrock (Mantle) + Haiku 4.5 behind a provider abstraction for the stretch tool
+
+The `extract_orders` stretch tool is the only place the server itself calls an LLM. We route it through **Amazon Bedrock** using the `AnthropicBedrockMantle` client (model id `anthropic.claude-haiku-4-5`, region required), behind a one-method provider interface with an **Anthropic-direct adapter as fallback**. We use **structured outputs** (`output_config.format` + JSON schema) so the tool returns schema-valid JSON.
+
+**Why:** The OneMagnify JD lists AWS Bedrock as a hard requirement and rewards "practical tradeoffs between model providers and configurations" plus "output reliability." Bedrock-primary lets the demo truthfully claim "this calls Claude on Bedrock"; the Anthropic-direct fallback is demo insurance (one config flip if Bedrock hiccups). Haiku 4.5 is right-sized — extraction from an already-compressed grid is simple and well-bounded, and Haiku gives sub-second latency (important for a live demo) at ~5× lower cost than Opus; the model id is a config value so we can live-swap to `anthropic.claude-opus-4-8` to demonstrate the abstraction. Structured outputs turn "I called an LLM" into "I built a reliable LLM service."
+
+**Considered and rejected:** Hardwiring Anthropic-direct (misses the Bedrock requirement). Defaulting to Opus 4.8 (over-sized; signals failure to right-size cost/latency — the opposite of the JD's stated value). No abstraction (a Bedrock outage the night before would sink the demo's centerpiece with no fallback).

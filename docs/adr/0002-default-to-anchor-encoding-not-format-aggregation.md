@@ -1,0 +1,7 @@
+# Default to the anchor encoding for Q&A / extraction, not formatAggregation
+
+The `compress_spreadsheet` tool and the `sheet_qa` / `extract_orders` paths default to the **anchor** encoding. We do **not** default to `formatAggregation` despite it producing far fewer tokens.
+
+**Why:** The demo's purpose is making a messy spreadsheet **LLM-legible and answerable**, not maximizing the compression ratio. Measured on the automotive hero file: `formatAggregation` is ~11× but **lossy** — it records numeric *format* regions and drops the actual values (makes, models, dealers, order IDs), so the model can't answer questions or extract line items from it. `anchor` and `invertedIndex` preserve every value; `anchor` is SheetCompressor's documented general default and ships with a reader prompt (`prompts.readers.anchor`) that teaches the model to decode it. On a dense order log `anchor`'s ratio is modest (even ~1×), and that's fine — legibility + a value-preserving, prompt-supported format is the point.
+
+**Considered and rejected:** `formatAggregation` (best ratio, but lossy — unusable for Q&A/extraction). `invertedIndex` is a reasonable value-preserving alternative when token budget is tight; it stays available via the tool's `encoding` argument, but `anchor` is the default for its readability and shipped reader prompt. See `CONTEXT.md` ("Raw baseline") and [[spreadsheetllm-purpose]] in memory.
