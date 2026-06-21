@@ -6,3 +6,8 @@ node_modules/
 
 # Personal interview material — not for the public build repo
 OneMagnify Full Stack AI Engineer Job Description.pdf
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/

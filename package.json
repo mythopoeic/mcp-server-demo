@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "test": "python3 -m pytest tests/",
+    "typecheck": "python3 -m compileall -q sheet_compressor_mcp server.py"
+  },
   "devDependencies": {
     "@ai-hero/sandcastle": "^0.10.0"
   },

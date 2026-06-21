@@ -1,0 +1,4 @@
+mcp[cli]>=1.28
+sheet-compressor>=0.1
+openpyxl>=3.1
+pytest>=8
