@@ -7,6 +7,7 @@ functions directly (Seam 1), so this file does not need its own test coverage.
 
 from mcp.server.fastmcp import FastMCP
 
+from sheet_compressor_mcp.extract import extract_orders as _extract_orders
 from sheet_compressor_mcp.tools import (
     EXAMPLE_SHEETS,
     compress_spreadsheet as _compress_spreadsheet,
@@ -65,6 +66,23 @@ def sheet_qa(encoding_text: str, question: str, encoding: str = "anchor") -> str
             ``encoding_text`` was produced.
     """
     return _sheet_qa(encoding_text, question, encoding=encoding)
+
+
+@mcp.tool()
+def extract_orders(xlsx_path: str, sheet: str | None = None) -> dict:
+    """Compress a sales sheet (anchor) and ask the configured LLM provider for
+    schema-valid order line-items.
+
+    Provider + model are selected by ``LLM_PROVIDER`` / ``BEDROCK_MODEL_ID`` /
+    ``ANTHROPIC_MODEL_ID`` per ADR-0001 (Bedrock primary, Anthropic-direct
+    fallback). Structured outputs guarantee the JSON matches the agreed shape:
+    ``{orders: [...], total_revenue}``.
+
+    Args:
+        xlsx_path: Path to the .xlsx sales sheet.
+        sheet: Optional worksheet name; defaults to the workbook's active sheet.
+    """
+    return _extract_orders(xlsx_path, sheet=sheet)
 
 
 if __name__ == "__main__":
