@@ -88,8 +88,25 @@ python -m pytest tests/
 ```
 
 Tests run at Seam 1 (the tool function) against both the bundled
-`examples/sample-orders.xlsx` ledger and the automotive hero file. The
-upstream `sheet-compressor` library is left unmodified.
+`examples/sample-orders.xlsx` ledger and the automotive hero file, and at
+Seam 2 (`extract_orders` against a fake LLM provider) — fully deterministic,
+no network. The upstream `sheet-compressor` library is left unmodified.
+
+## Eval harness
+
+```bash
+python -m sheet_compressor_mcp.evals
+```
+
+Golden cases over the hero file, scored against the **real** LLM provider
+(per `.env` — Bedrock primary, Anthropic-direct fallback). Network-dependent
+and **separate** from the unit suite. Prints `[PASS]` / `[FAIL]` per
+expectation with a final `N/M expectations passed` summary, and exits non-zero
+if any expectation failed (so a CI script can gate on it). The shipped suite
+checks coverage (all four regions present, ≥100 orders extracted), schema
+fidelity (every order has every required field; regions/makes drawn from the
+sheet's known sets), and totals consistency (`total_revenue` == sum of order
+`total`s).
 
 ## Layout
 
@@ -97,6 +114,9 @@ upstream `sheet-compressor` library is left unmodified.
 server.py                 # MCP registration (FastMCP, stdio)
 sheet_compressor_mcp/
   tools.py                # pure tool functions — tested directly
+  extract.py              # extract_orders stretch tool
+  llm.py                  # LLM provider abstraction (Bedrock + Anthropic)
+  evals.py                # golden-case eval harness (real-provider)
 examples/
   build_hero_file.py      # generator for the automotive hero file
   northstar-auto-q3-2025.xlsx
@@ -104,4 +124,8 @@ examples/
   sample-orders.xlsx
 tests/
   test_compress_spreadsheet.py
+  test_example_sheet.py
+  test_sheet_qa.py
+  test_extract_orders.py
+  test_evals.py
 ```
