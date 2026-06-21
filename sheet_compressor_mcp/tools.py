@@ -7,10 +7,22 @@ them with FastMCP; tests exercise them directly (Seam 1 in the PRD).
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from sheet_compressor import compress
 from sheet_compressor.adapters.xlsx import read_sheet
 
 ENCODINGS = ("anchor", "invertedIndex", "formatAggregation")
+
+_EXAMPLES_DIR = Path(__file__).resolve().parents[1] / "examples"
+
+# Registry of bundled example sheets served by the `sheet://examples/{name}`
+# MCP Resource. Names are stable, human-meaningful slugs; the values point at
+# the proven .xlsx files in `examples/`. Per PRD, the generic ledger is the
+# served Resource (stable + easy to verify by hand).
+EXAMPLE_SHEETS: dict[str, Path] = {
+    "sample-orders": _EXAMPLES_DIR / "sample-orders.xlsx",
+}
 
 
 def compress_spreadsheet(
@@ -43,3 +55,19 @@ def compress_spreadsheet(
         "rawBaselineTokens": raw_tokens,
         "savingsRatio": round(raw_tokens / enc_tokens, 1) if enc_tokens else None,
     }
+
+
+def example_sheet(name: str) -> str:
+    """Return the anchor-encoded string for a bundled example sheet by name.
+
+    Backs the ``sheet://examples/{name}`` MCP Resource: an MCP client can fetch
+    this to see the anchor encoding format before sending its own data. Anchor
+    is the default encoding per ADR-0002 (value-preserving, LLM-legible).
+    """
+    if name not in EXAMPLE_SHEETS:
+        known = ", ".join(sorted(EXAMPLE_SHEETS))
+        raise ValueError(
+            f"Unknown example sheet {name!r}; known names: {known}"
+        )
+
+    return compress_spreadsheet(str(EXAMPLE_SHEETS[name]), encoding="anchor")["compressed"]

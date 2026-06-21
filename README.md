@@ -71,6 +71,16 @@ Returns `{encoding, compressed, tokenEstimate, rawBaselineTokens, savingsRatio}`
   [ADR-0002](docs/adr/0002-default-to-anchor-encoding-not-format-aggregation.md).
 - `sheet` selects a worksheet by name in a multi-sheet workbook.
 
+## Resource
+
+```
+sheet://examples/{name}
+```
+
+Returns the bundled example sheet in the default `anchor` encoding so a client
+can see the format before sending its own data. Known names: `sample-orders`
+(the generic order ledger). Unknown names return a clear `ValueError`.
+
 ## Tests
 
 ```bash

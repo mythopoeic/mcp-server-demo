@@ -7,7 +7,11 @@ functions directly (Seam 1), so this file does not need its own test coverage.
 
 from mcp.server.fastmcp import FastMCP
 
-from sheet_compressor_mcp.tools import compress_spreadsheet as _compress_spreadsheet
+from sheet_compressor_mcp.tools import (
+    EXAMPLE_SHEETS,
+    compress_spreadsheet as _compress_spreadsheet,
+    example_sheet as _example_sheet,
+)
 
 mcp = FastMCP("sheet-compressor")
 
@@ -27,6 +31,25 @@ def compress_spreadsheet(xlsx_path: str, encoding: str = "anchor", sheet: str | 
         ``{encoding, compressed, tokenEstimate, rawBaselineTokens, savingsRatio}``.
     """
     return _compress_spreadsheet(xlsx_path, encoding=encoding, sheet=sheet)
+
+
+@mcp.resource(
+    "sheet://examples/{name}",
+    name="example_sheet",
+    description=(
+        "Bundled example sheet in compressed anchor encoding — fetch this to "
+        "see the encoding format before sending your own data. Known names: "
+        + ", ".join(sorted(EXAMPLE_SHEETS))
+    ),
+    mime_type="text/plain",
+)
+def example_sheet(name: str) -> str:
+    """Serve a bundled example sheet, anchor-encoded.
+
+    Unknown ``name`` raises ``ValueError`` so the MCP client gets a clear error
+    instead of a server crash.
+    """
+    return _example_sheet(name)
 
 
 if __name__ == "__main__":
