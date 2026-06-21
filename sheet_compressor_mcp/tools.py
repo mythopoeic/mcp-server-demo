@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sheet_compressor import compress
+from sheet_compressor import compress, prompts
 from sheet_compressor.adapters.xlsx import read_sheet
 
 ENCODINGS = ("anchor", "invertedIndex", "formatAggregation")
@@ -71,3 +71,30 @@ def example_sheet(name: str) -> str:
         )
 
     return compress_spreadsheet(str(EXAMPLE_SHEETS[name]), encoding="anchor")["compressed"]
+
+
+def sheet_qa(
+    encoding_text: str,
+    question: str,
+    encoding: str = "anchor",
+) -> str:
+    """Compose the encoding's reader explainer with the sheetQA task template.
+
+    Returns a single ready-to-run prompt that teaches the model to decode the
+    given compressed sheet and answer the question. ``encoding`` selects which
+    reader explainer to prepend; defaults to ``anchor`` per ADR-0002.
+
+    Uses plain ``str.replace`` (not ``str.format``) so braces in user-supplied
+    encoding text and questions survive verbatim.
+    """
+    if encoding not in ENCODINGS:
+        raise ValueError(
+            f"Unknown encoding {encoding!r}; expected one of {ENCODINGS}"
+        )
+
+    reader = getattr(prompts.readers, encoding)
+    task = prompts.tasks.sheetQA
+    filled_task = task.replace("{ENCODING}", encoding_text).replace(
+        "{QUESTION}", question
+    )
+    return f"{reader}\n\n{filled_task}"

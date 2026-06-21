@@ -11,6 +11,7 @@ from sheet_compressor_mcp.tools import (
     EXAMPLE_SHEETS,
     compress_spreadsheet as _compress_spreadsheet,
     example_sheet as _example_sheet,
+    sheet_qa as _sheet_qa,
 )
 
 mcp = FastMCP("sheet-compressor")
@@ -50,6 +51,20 @@ def example_sheet(name: str) -> str:
     instead of a server crash.
     """
     return _example_sheet(name)
+
+
+@mcp.prompt()
+def sheet_qa(encoding_text: str, question: str, encoding: str = "anchor") -> str:
+    """Ready-to-run prompt: reader explainer + sheetQA task, filled in.
+
+    Args:
+        encoding_text: The compressed sheet string (e.g. from ``compress_spreadsheet``).
+        question: The natural-language question to ask about the sheet.
+        encoding: Which reader explainer to prepend — ``anchor`` (default),
+            ``invertedIndex``, or ``formatAggregation``. Must match how
+            ``encoding_text`` was produced.
+    """
+    return _sheet_qa(encoding_text, question, encoding=encoding)
 
 
 if __name__ == "__main__":
