@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, TextIO
 
-from .extract import extract_orders
+from .extract import DEALER_REGIONS, extract_orders
 from .llm import LLMProvider, build_provider_from_env
 
 
@@ -32,7 +32,8 @@ HERO_XLSX = EXAMPLES_DIR / "northstar-auto-q3-2025.xlsx"
 # generator's seeded random sequence: it stacks per-region / per-month blocks
 # over the four regions below, using makes from the fixed LINEUP and statuses
 # from the fixed STATUSES list. These mirror examples/build_hero_file.py.
-KNOWN_REGIONS = frozenset({"Midwest", "Southeast", "West", "Northeast"})
+# DEALER_REGIONS is the same set extract_orders fans out over — one source.
+KNOWN_REGIONS = frozenset(DEALER_REGIONS)
 KNOWN_MAKES = frozenset({"Ford", "Chevrolet", "Jeep", "Ram", "GMC", "Cadillac"})
 REQUIRED_ORDER_FIELDS = frozenset({
     "order_id", "order_date", "dealership", "region", "make",
@@ -186,7 +187,7 @@ def run_cases(
             if outcome.passed:
                 passed += 1
             mark = "PASS" if outcome.passed else "FAIL"
-            print(f"[{mark}] {case.name} :: {outcome.name} — {outcome.detail}", file=out)
+            print(f"[{mark}] {case.name} :: {outcome.name} - {outcome.detail}", file=out)
 
     print(f"\n{passed}/{total} expectations passed", file=out)
     return 0 if passed == total else 1

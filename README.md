@@ -96,8 +96,8 @@ That asks the client to walk the three primitives in sequence:
 2. **`sheet_qa`** wraps the encoding with the anchor reader explainer + the
    `sheetQA` task template so the model can decode the sheet and answer the
    region question from cell values — no extra LLM call from the server.
-3. **`extract_orders`** compresses the sheet again and makes one Bedrock
-   call with structured outputs to return `{orders: [...], total_revenue}`.
+3. **`extract_orders`** compresses the sheet again and fans out one Bedrock
+   call per region (concurrently), merging to `{orders: [...], total_revenue}`.
 
 This is the flow the [eval harness](#eval-harness) regression-tests, and the
 flow [`PRODUCTION.md`](PRODUCTION.md) describes hardening for enterprise
@@ -144,10 +144,10 @@ and answer the question — no extra round-trip through this server.
 extract_orders(xlsx_path: str, sheet: str | None = None) -> dict
 ```
 
-Compresses `xlsx_path` (anchor encoding), then makes one Claude call —
+Compresses `xlsx_path` (anchor encoding), then extracts order line-items —
 **on Bedrock** by default per
 [ADR-0001](docs/adr/0001-bedrock-provider-and-model-for-stretch-tool.md) —
-with structured outputs, returning:
+returning:
 
 ```
 {
@@ -159,6 +159,14 @@ with structured outputs, returning:
   "total_revenue": <number>
 }
 ```
+
+The hero sheet holds **~426 orders** — too many for one call's output budget —
+so `extract_orders` fans out **one bounded call per region** (the sheet's
+natural partition), runs them **concurrently**, and merges, recomputing
+`total_revenue` as the authoritative sum of every order's `total`. Each call
+returns schema-valid JSON via a **forced tool call** (the Bedrock endpoint
+doesn't accept the `output_config.format` structured-outputs API — see
+ADR-0001). A full extraction runs ~40–50s.
 
 The provider is selected by `LLM_PROVIDER` (`bedrock` | `anthropic`); the
 model id is a config value — live-swap Haiku 4.5 → Opus 4.8 by editing the

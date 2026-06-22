@@ -13,6 +13,7 @@ from pathlib import Path
 
 from sheet_compressor_mcp.evals import (
     GOLDEN_CASES,
+    DEALER_REGIONS,
     GoldenCase,
     all_regions_present,
     extracted_order_count_at_least,
@@ -120,7 +121,7 @@ def test_run_cases_returns_zero_when_all_pass():
     fake = FakeProvider(GOOD_RESPONSE)
     rc = run_cases(cases=[case], provider=fake, out=buf)
     assert rc == 0
-    assert fake.calls == 1
+    assert fake.calls == len(DEALER_REGIONS)
     out = buf.getvalue()
     assert "[PASS]" in out
     assert "1/1 expectations passed" in out
@@ -155,8 +156,9 @@ def test_run_cases_runs_each_expectation_under_its_case_name():
 
 def test_run_cases_calls_provider_once_per_case_not_per_expectation():
     # Important: golden cases run extract_orders ONCE per case and reuse the
-    # result across expectations. Otherwise the eval bill scales with the
-    # number of assertions instead of the number of cases.
+    # result across expectations. extract_orders itself fans out one call per
+    # region, so the bill scales with regions-per-case — NOT with the number of
+    # assertions (here, 3 expectations still cost just one region-fan-out).
     case = GoldenCase(
         name="reused",
         xlsx_path=HERO_XLSX,
@@ -164,7 +166,7 @@ def test_run_cases_calls_provider_once_per_case_not_per_expectation():
     )
     fake = FakeProvider(GOOD_RESPONSE)
     run_cases(cases=[case], provider=fake, out=io.StringIO())
-    assert fake.calls == 1
+    assert fake.calls == len(DEALER_REGIONS)
 
 
 def test_golden_cases_target_the_hero_file():

@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from sheet_compressor_mcp.extract import ORDERS_SCHEMA, extract_orders
+from sheet_compressor_mcp.extract import DEALER_REGIONS, ORDERS_SCHEMA, extract_orders
 from sheet_compressor_mcp.llm import (
     AnthropicProvider,
     BedrockProvider,
@@ -62,21 +62,46 @@ CANNED_RESPONSE = {
 }
 
 
-def test_extract_orders_returns_provider_payload_unchanged():
+def test_extract_orders_fans_out_one_call_per_region_and_merges():
+    # extract_orders splits the sheet's stacked per-region tables into one
+    # bounded LLM call per region, then merges the orders. With a fake returning
+    # one order per call, the merged result holds one order per region.
     fake = FakeProvider(CANNED_RESPONSE)
     result = extract_orders(HERO_XLSX, provider=fake)
-    assert result == CANNED_RESPONSE
+
+    assert len(fake.calls) == len(DEALER_REGIONS)
+    assert len(result["orders"]) == len(DEALER_REGIONS)
+
+
+def test_extract_orders_targets_every_region_distinctly():
+    # Each fan-out call must name its own region so the model extracts only that
+    # region's table — otherwise the chunks overlap and orders are duplicated.
+    fake = FakeProvider(CANNED_RESPONSE)
+    extract_orders(HERO_XLSX, provider=fake)
+
+    users = [call["user"] for call in fake.calls]
+    for region in DEALER_REGIONS:
+        assert any(region in user for user in users), f"no call targeted {region}"
+
+
+def test_extract_orders_recomputes_total_revenue_as_sum_of_orders():
+    # total_revenue is the authoritative sum across all merged orders, not any
+    # single chunk's figure — so it must equal the sum of every order's total.
+    fake = FakeProvider(CANNED_RESPONSE)
+    result = extract_orders(HERO_XLSX, provider=fake)
+
+    assert result["total_revenue"] == sum(o["total"] for o in result["orders"])
+    assert result["total_revenue"] == len(DEALER_REGIONS) * 90000.0
 
 
 def test_extract_orders_passes_agreed_schema_to_provider():
     fake = FakeProvider(CANNED_RESPONSE)
     extract_orders(HERO_XLSX, provider=fake)
 
-    assert len(fake.calls) == 1
-    schema = fake.calls[0]["schema"]
-    assert schema is ORDERS_SCHEMA
+    assert len(fake.calls) == len(DEALER_REGIONS)
+    assert all(call["schema"] is ORDERS_SCHEMA for call in fake.calls)
 
-    order_props = schema["properties"]["orders"]["items"]["properties"]
+    order_props = ORDERS_SCHEMA["properties"]["orders"]["items"]["properties"]
     expected_fields = {
         "order_id",
         "order_date",
@@ -90,7 +115,7 @@ def test_extract_orders_passes_agreed_schema_to_provider():
         "status",
     }
     assert set(order_props.keys()) == expected_fields
-    assert "total_revenue" in schema["properties"]
+    assert "total_revenue" in ORDERS_SCHEMA["properties"]
 
 
 def test_extract_orders_user_prompt_carries_anchor_encoded_sheet():
@@ -99,8 +124,7 @@ def test_extract_orders_user_prompt_carries_anchor_encoded_sheet():
     fake = FakeProvider(CANNED_RESPONSE)
     extract_orders(HERO_XLSX, provider=fake)
 
-    user = fake.calls[0]["user"]
-    assert "Northstar Auto" in user
+    assert all("Northstar Auto" in call["user"] for call in fake.calls)
 
 
 def test_extract_orders_system_prompt_includes_anchor_reader():
@@ -110,8 +134,7 @@ def test_extract_orders_system_prompt_includes_anchor_reader():
     fake = FakeProvider(CANNED_RESPONSE)
     extract_orders(HERO_XLSX, provider=fake)
 
-    system = fake.calls[0]["system"]
-    assert "anchor-skeleton" in system
+    assert all("anchor-skeleton" in call["system"] for call in fake.calls)
 
 
 def test_bedrock_provider_rejects_bare_model_id():
