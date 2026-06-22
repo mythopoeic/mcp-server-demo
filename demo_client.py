@@ -62,7 +62,9 @@ async def main() -> None:
     env = dict(os.environ)
     env.setdefault("LLM_PROVIDER", "bedrock")
     env.setdefault("AWS_REGION", "us-east-1")
-    env.setdefault("BEDROCK_MODEL_ID", "anthropic.claude-haiku-4-5")
+    # Don't pin BEDROCK_MODEL_ID here — let the server use its configured value
+    # (env / .env) or the code default (the Haiku 4.5 inference profile). Hard-
+    # coding a stale id here would override a correct one.
     env["SHEET_MCP_TRACE"] = "1"
 
     params = StdioServerParameters(
@@ -125,11 +127,18 @@ async def main() -> None:
                 send=True,
             )
             res = await session.call_tool("extract_orders", {"xlsx_path": HERO})
-            d = tool_dict(res)
-            orders = d.get("orders", [])
-            regions = sorted({o["region"] for o in orders})
-            print(f"<- {len(orders):,} orders across {regions}")
-            print(f"<- total_revenue ${d.get('total_revenue'):,.2f}")
+            if getattr(res, "isError", False):
+                print("<- server returned an ERROR:")
+                for block in res.content:
+                    if getattr(block, "type", None) == "text":
+                        print("  ", block.text)
+            else:
+                d = tool_dict(res)
+                orders = d.get("orders", [])
+                regions = sorted({o.get("region") for o in orders})
+                revenue = d.get("total_revenue") or 0
+                print(f"<- {len(orders):,} orders across {regions}")
+                print(f"<- total_revenue ${revenue:,.2f}")
 
     rule("DISCONNECT  server process closed")
 

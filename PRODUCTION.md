@@ -34,7 +34,7 @@ Two reasonable shapes, picked by traffic profile:
 
 | Shape | When it fits | Why |
 |---|---|---|
-| **ECS Fargate task + ALB** | Bursty + sustained: dozens-to-hundreds of concurrent sessions; long-lived SSE streams; warm `AnthropicBedrockMantle` client cached in-process | No cold-start; in-memory cache for compressed sheets pays back; tasks scale on `RequestCountPerTarget` |
+| **ECS Fargate task + ALB** | Bursty + sustained: dozens-to-hundreds of concurrent sessions; long-lived SSE streams; warm `AnthropicBedrock` client cached in-process | No cold-start; in-memory cache for compressed sheets pays back; tasks scale on `RequestCountPerTarget` |
 | **Lambda + API Gateway (WebSocket or HTTP-stream)** | Spiky, low-baseline: a few analysts a day; cost-optimized; long idle periods | Cold-start tolerable when the call is already ~1–3s of Bedrock latency; no idle compute bill |
 
 Both sit behind **API Gateway** for auth, rate limiting, and request
@@ -46,9 +46,9 @@ endpoint), so the spreadsheet payload never leaves AWS.
 
 ## 3. Bedrock for governance and data residency
 
-The provider abstraction (ADR-0001) already routes the centerpiece LLM
-call through `AnthropicBedrockMantle`. That choice **is** the enterprise
-governance story:
+The provider abstraction (ADR-0001) routes the centerpiece LLM call through
+the classic `AnthropicBedrock` (`bedrock-runtime` **`InvokeModel`**) client.
+That choice **is** the enterprise governance story:
 
 - **Data residency.** Bedrock keeps the request payload (the compressed
   sheet — which still contains every cell value under the `anchor`
@@ -58,13 +58,20 @@ governance story:
   data from training by default; no separate Zero Data Retention
   negotiation required.
 - **IAM-scoped model access.** Which models a deployed task can invoke is
-  IAM policy on the task role (`bedrock:InvokeModel` for specific model
-  ARNs) — not an API key. Rotation is role-rotation.
-- **Right-sized model id.** `BEDROCK_MODEL_ID=anthropic.claude-haiku-4-5`
-  is the production default (sub-second, cheap, sufficient for
-  schema-bounded extraction from a pre-compressed grid). The id is config,
-  so an operator flips to `anthropic.claude-opus-4-8` for sensitive
-  high-stakes batches without a redeploy.
+  IAM policy on the task role (`bedrock:InvokeModel` for specific
+  inference-profile ARNs) — not an API key. Rotation is role-rotation.
+- **Cross-region inference profile.** `BEDROCK_MODEL_ID=`
+  `us.anthropic.claude-haiku-4-5-20251001-v1:0` is the production default — an
+  inference profile, not a bare model id. On-demand Haiku 4.5 *requires* one
+  (the bare id 400s with "on-demand throughput isn't supported"), and it's the
+  right enterprise default anyway: cross-region capacity for availability,
+  behind a single governable model handle. The id is config, so an operator
+  flips to the matching Opus inference profile for sensitive high-stakes
+  batches without a redeploy.
+- **Auditable by construction.** Because the call uses the `InvokeModel` API
+  (not the Mantle endpoint), every invocation is captured by Bedrock
+  model-invocation logging — see §5. The audit trail is AWS-native
+  infrastructure, independent of whether the application remembers to log.
 - **Anthropic-direct fallback.** `LLM_PROVIDER=anthropic` is a one-env-var
   failover for the rare Bedrock-region incident. Same `extract_structured`
   interface; same JSON schema; no caller changes.
@@ -93,15 +100,28 @@ changes, the entry expires by LRU. No timestamp games.
 The eval harness already proves the model *works*; observability proves it
 **keeps** working in production.
 
+- **Bedrock model-invocation logging (AWS-native audit).** Enabled at the
+   account/region level, Bedrock writes one record per `InvokeModel` call to
+   CloudWatch Logs (and/or S3): the inference-profile ARN, `operation`, caller
+   `identity`, `requestId`, `region`, and the full request/response payload.
+   This is the tamper-evident, infrastructure-level audit trail an enterprise
+   needs — it exists whether or not the application code logs anything, so it
+   answers "who invoked which model, when, with what" for compliance and
+   incident response. It only works on the `bedrock-runtime` `InvokeModel`
+   path, which is exactly why ADR-0001 uses `AnthropicBedrock` and not the
+   Mantle endpoint (whose calls never reach CloudWatch). Watch it live with
+   CloudWatch Logs **Live Tail** during a demo; alarm on it in production.
+- **CloudWatch metrics.** From the `AWS/Bedrock` namespace (by model id):
+   `Invocations`, `InputTokenCount`, `OutputTokenCount`, `InvocationLatency`,
+   plus app-level latency p50/p95/p99, error rate by exception class, Bedrock
+   throttle count, and cache hit rate. SLO: p95 < 3s for the hero sheet's size
+   class.
 - **Structured logs.** Every `extract_orders` call emits one JSON log line:
   `{request_id, xlsx_bytes_len, encoding, sheet, tokens_in, tokens_out,
    provider, model_id, latency_ms, orders_count, total_revenue,
    schema_valid: true|false}`. Schema-valid is always `true` today
-   (structured outputs enforce it server-side); logging it explicitly is the
-   canary for the day a model change drops structured-output support.
-- **CloudWatch metrics.** Latency p50/p95/p99, error rate by exception
-   class, Bedrock throttle count, cache hit rate. SLO: p95 < 3s for the hero
-   sheet's size class.
+   (forced tool-use returns schema-shaped JSON); logging it explicitly is the
+   canary for the day a model change breaks the tool-call contract.
 - **CloudWatch Logs Insights queries** for the standard cuts: regressions in
    orders-extracted-per-call, sudden drops in `total_revenue` reasonableness.
 - **LangSmith** (or equivalent — Langfuse, Arize Phoenix) for trace-level
