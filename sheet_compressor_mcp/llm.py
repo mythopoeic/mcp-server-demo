@@ -1,11 +1,13 @@
 """LLM provider abstraction for the extract_orders stretch tool.
 
 One-method interface (`LLMProvider.extract_structured`) with two adapters per
-ADR-0001: Bedrock primary (``AnthropicBedrockMantle``, ``anthropic.``-prefixed
-model id, region required) and Anthropic-direct fallback. Schema-valid JSON is
-obtained via a forced single tool call (the Bedrock endpoint rejects
-``output_config.format`` structured outputs). Adapters import the ``anthropic``
-SDK lazily so tests that inject a fake provider need no network or SDK install.
+ADR-0001: Bedrock primary (classic ``AnthropicBedrock`` / ``bedrock-runtime``
+InvokeModel, region + inference-profile model id required) and Anthropic-direct
+fallback. The InvokeModel path — not the Mantle endpoint — is what Bedrock
+model-invocation logging and CloudWatch metrics observe. Schema-valid JSON is
+obtained via a forced single tool call (portable across both providers).
+Adapters import the ``anthropic`` SDK lazily so tests that inject a fake
+provider need no network or SDK install.
 
 Tests target Seam 2 — ``extract_orders`` against a fake provider — so the real
 adapters are exercised only by the eval harness, not the unit suite.
@@ -86,20 +88,29 @@ class _MessagesProvider:
 
 
 class BedrockProvider(_MessagesProvider):
-    """Bedrock-primary adapter using ``AnthropicBedrockMantle`` (ADR-0001)."""
+    """Bedrock-primary adapter using the classic ``AnthropicBedrock`` client.
+
+    Calls hit the ``bedrock-runtime`` InvokeModel API (not the Mantle endpoint),
+    so they are captured by Bedrock model-invocation logging and CloudWatch
+    metrics — the observability/governance path (ADR-0001). On-demand Haiku 4.5
+    requires a cross-region inference-profile id, e.g.
+    ``us.anthropic.claude-haiku-4-5-20251001-v1:0``.
+    """
 
     def __init__(self, *, region: str, model_id: str) -> None:
-        if not model_id.startswith("anthropic."):
+        if "anthropic." not in model_id:
             raise ValueError(
-                f"Bedrock model ids must carry the 'anthropic.' prefix; got {model_id!r}"
+                "Bedrock model ids must name an Anthropic model "
+                "(e.g. 'us.anthropic.claude-haiku-4-5-20251001-v1:0'); "
+                f"got {model_id!r}"
             )
         super().__init__(model_id)
         self._region = region
 
     def _build_client(self):
-        from anthropic import AnthropicBedrockMantle
+        from anthropic import AnthropicBedrock
 
-        return AnthropicBedrockMantle(aws_region=self._region)
+        return AnthropicBedrock(aws_region=self._region)
 
 
 class AnthropicProvider(_MessagesProvider):
@@ -121,7 +132,9 @@ def build_provider_from_env(env: dict[str, str] | None = None) -> LLMProvider:
 
     if choice == "bedrock":
         region = env.get("AWS_REGION", "us-east-1")
-        model_id = env.get("BEDROCK_MODEL_ID", "anthropic.claude-haiku-4-5")
+        model_id = env.get(
+            "BEDROCK_MODEL_ID", "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+        )
         return BedrockProvider(region=region, model_id=model_id)
     if choice == "anthropic":
         model_id = env.get("ANTHROPIC_MODEL_ID", "claude-haiku-4-5")

@@ -45,7 +45,7 @@ Or hand-edit `claude_desktop_config.json`:
       "env": {
         "LLM_PROVIDER": "bedrock",
         "AWS_REGION": "us-east-1",
-        "BEDROCK_MODEL_ID": "anthropic.claude-haiku-4-5"
+        "BEDROCK_MODEL_ID": "us.anthropic.claude-haiku-4-5-20251001-v1:0"
       }
     }
   }
@@ -68,7 +68,7 @@ Add a `.mcp.json` at the repo root (or `~/.claude/mcp.json` for global):
       "env": {
         "LLM_PROVIDER": "bedrock",
         "AWS_REGION": "us-east-1",
-        "BEDROCK_MODEL_ID": "anthropic.claude-haiku-4-5"
+        "BEDROCK_MODEL_ID": "us.anthropic.claude-haiku-4-5-20251001-v1:0"
       }
     }
   }

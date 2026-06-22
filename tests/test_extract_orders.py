@@ -149,6 +149,14 @@ def test_bedrock_provider_accepts_prefixed_model_id():
     assert provider._model_id == "anthropic.claude-haiku-4-5"
 
 
+def test_bedrock_provider_accepts_inference_profile_id():
+    # On-demand Haiku 4.5 on the classic InvokeModel path needs a cross-region
+    # inference-profile id (us./global. prefix) — the adapter must accept it.
+    mid = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+    provider = BedrockProvider(region="us-east-1", model_id=mid)
+    assert provider._model_id == mid
+
+
 def test_build_provider_from_env_picks_bedrock_by_default():
     provider = build_provider_from_env(
         {"AWS_REGION": "us-east-1", "BEDROCK_MODEL_ID": "anthropic.claude-haiku-4-5"}
