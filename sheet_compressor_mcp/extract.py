@@ -14,12 +14,26 @@ provider returning canned JSON — no network, deterministic.
 
 from __future__ import annotations
 
+import os
+import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from sheet_compressor import prompts
 
 from .llm import LLMProvider, build_provider_from_env
 from .tools import compress_spreadsheet
+
+
+def _trace(msg: str) -> None:
+    """Emit a request/response trace line to stderr when SHEET_MCP_TRACE is set.
+
+    Off by default — silent in tests and normal library use. ``demo.py`` and
+    ``demo_client.py`` switch it on so a screen recording shows each Bedrock
+    round-trip going out and coming back.
+    """
+    if os.environ.get("SHEET_MCP_TRACE"):
+        print(f"    [trace] {msg}", file=sys.stderr, flush=True)
 
 
 # The hero sheet's four stacked per-region tables. Single source of truth for
@@ -117,19 +131,31 @@ def extract_orders(
             f"Extract ONLY the orders whose region is {region}; ignore the other "
             f"regions' tables. {_TASK_PROMPT}\n\n{compressed}"
         )
+        t0 = time.perf_counter()
+        _trace(f"--> Bedrock request  | region={region:<9}")
         payload = provider.extract_structured(
             system=system,
             user=user,
             schema=ORDERS_SCHEMA,
             max_tokens=_PER_REGION_MAX_TOKENS,
         )
-        return payload.get("orders", [])
+        orders = payload.get("orders", [])
+        _trace(
+            f"<-- Bedrock response | region={region:<9} | "
+            f"{len(orders):>3} orders | {time.perf_counter() - t0:>5.1f}s"
+        )
+        return orders
 
+    _trace(
+        f"compressed sheet -> {len(compressed):,} chars; fanning out "
+        f"{len(regions)} region calls in parallel: {list(regions)}"
+    )
     # IO-bound calls: one thread per region. pool.map preserves region order.
     with ThreadPoolExecutor(max_workers=len(regions)) as pool:
         per_region = list(pool.map(_extract_region, regions))
 
     orders = [order for region_orders in per_region for order in region_orders]
     total_revenue = sum((o.get("total") or 0) for o in orders)
+    _trace(f"merged -> {len(orders)} orders | total_revenue={total_revenue:,}")
 
     return {"orders": orders, "total_revenue": total_revenue}

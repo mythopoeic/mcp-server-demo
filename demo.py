@@ -18,15 +18,21 @@ baked into the code, so no environment setup is required.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
+
+# Surface each Bedrock round-trip (per region, with timing) on stderr so a
+# recording shows the calls going out and results coming back. See extract._trace.
+os.environ.setdefault("SHEET_MCP_TRACE", "1")
 
 from sheet_compressor_mcp.extract import extract_orders
 from sheet_compressor_mcp.tools import compress_spreadsheet, example_sheet, sheet_qa
 
-# Render the library's prompt text (em-dashes, etc.) correctly on Windows consoles.
+# Render the library's prompt text (em-dashes, etc.) correctly on Windows
+# consoles, and line-buffer so stdout interleaves with the stderr trace in order.
 if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stdout.reconfigure(encoding="utf-8", line_buffering=True)
 
 HERO = str(Path(__file__).resolve().parent / "examples" / "northstar-auto-q3-2025.xlsx")
 
