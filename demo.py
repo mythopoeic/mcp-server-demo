@@ -26,8 +26,10 @@ from pathlib import Path
 # recording shows the calls going out and results coming back. See extract._trace.
 os.environ.setdefault("SHEET_MCP_TRACE", "1")
 
-from sheet_compressor_mcp.extract import extract_orders
+from sheet_compressor_mcp.extract import extract_orders, quiet_demo_logs
 from sheet_compressor_mcp.tools import compress_spreadsheet, example_sheet, sheet_qa
+
+quiet_demo_logs()  # silence third-party INFO logs so only the [trace] lines show
 
 # Render the library's prompt text (em-dashes, etc.) correctly on Windows
 # consoles, and line-buffer so stdout interleaves with the stderr trace in order.

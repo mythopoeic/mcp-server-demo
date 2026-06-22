@@ -8,6 +8,7 @@ functions directly (Seam 1), so this file does not need its own test coverage.
 from mcp.server.fastmcp import FastMCP
 
 from sheet_compressor_mcp.extract import extract_orders as _extract_orders
+from sheet_compressor_mcp.extract import quiet_demo_logs
 from sheet_compressor_mcp.tools import (
     EXAMPLE_SHEETS,
     compress_spreadsheet as _compress_spreadsheet,
@@ -86,4 +87,5 @@ def extract_orders(xlsx_path: str, sheet: str | None = None) -> dict:
 
 
 if __name__ == "__main__":
+    quiet_demo_logs()  # no-op unless SHEET_MCP_TRACE is set (recording mode)
     mcp.run()

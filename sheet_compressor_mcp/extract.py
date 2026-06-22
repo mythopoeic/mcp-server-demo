@@ -36,6 +36,21 @@ def _trace(msg: str) -> None:
         print(f"    [trace] {msg}", file=sys.stderr, flush=True)
 
 
+def quiet_demo_logs() -> None:
+    """In trace/recording mode, silence third-party INFO logs (httpx's per-request
+    lines, etc.) so only the clean ``[trace]`` output shows on camera.
+
+    No-op unless SHEET_MCP_TRACE is set, so normal server/library use keeps its
+    usual logging. Called by ``server.py`` and ``demo.py``.
+    """
+    if not os.environ.get("SHEET_MCP_TRACE"):
+        return
+    import logging
+
+    for name in ("httpx", "httpcore", "anthropic", "boto3", "botocore", "urllib3"):
+        logging.getLogger(name).setLevel(logging.WARNING)
+
+
 # The hero sheet's four stacked per-region tables. Single source of truth for
 # the regions we fan out over (the eval harness imports this to validate that
 # every extracted order names a known region).
